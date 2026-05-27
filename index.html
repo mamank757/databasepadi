@@ -3,82 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Varietas Padi</title>
+    <title>Filter Database Varietas Padi</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
-        h2 { color: #2c3e50; }
-        button { padding: 10px 15px; font-size: 16px; background-color: #27ae60; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 25px; background-color: #f5f7fa; color: #333; }
+        h2 { color: #2c3e50; margin-bottom: 20px; }
+        
+        .filter-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; margin-bottom: 25px; }
+        .filter-box { display: flex; flex-direction: column; gap: 5px; }
+        .filter-box label { font-size: 14px; font-weight: bold; color: #555; }
+        
+        select, button { padding: 10px 14px; font-size: 15px; border-radius: 5px; border: 1px solid #ccc; outline: none; }
+        select { background-color: #fff; min-width: 180px; cursor: pointer; }
+        
+        button { background-color: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         button:hover { background-color: #219653; }
-        #loading { display: none; margin-top: 10px; font-style: italic; color: #7f8c8d; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: white; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #2980b9; color: white; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
+        #loading { font-style: italic; color: #e67e22; font-weight: bold; margin-bottom: 15px; display: none; }
+        #statusInfo { font-size: 14px; color: #7f8c8d; margin-bottom: 10px; }
+        
+        .table-responsive { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+        th { background-color: #2980b9; color: white; font-weight: 600; white-space: nowrap; }
+        tr:nth-child(even) { background-color: #f9fbfd; }
+        tr:hover { background-color: #f1f4f7; }
+        
+        .no-data { text-align: center; padding: 30px; color: #95a5a6; font-size: 16px; font-style: italic; }
     </style>
 </head>
 <body>
 
-    <h2>Database Varietas Padi (Live dari Google Sheets)</h2>
-    <button onclick="muatDataPadi()">Tampilkan / Refresh Data</button>
-    <div id="loading">Sedang mengambil data dari database...</div>
+    <h2>Pencarian Varietas Padi Unggul</h2>
+    
+    <div class="filter-container">
+        <div class="filter-box">
+            <label for="filterUmur">Kategori Umur Panen:</label>
+            <select id="filterUmur" onchange="terapkanFilter()">
+                <option value="semua">-- Semua Umur --</option>
+                <option value="genjah">Genjah (< 105 HST)</option>
+                <option value="sedang">Sedang (105 - 115 HST)</option>
+                <option value="dalam">Dalam (> 115 HST)</option>
+            </select>
+        </div>
 
-    <table id="tabelPadi" style="display:none;">
-        <thead>
-            <tr id="headerTabel"></tr>
-        </thead>
-        <tbody id="bodyTabel"></tbody>
-    </table>
+        <div class="filter-box">
+            <label for="filterLahan">Kesesuaian Lahan:</label>
+            <select id="filterLahan" onchange="terapkanFilter()">
+                <option value="semua">-- Semua Jenis Lahan --</option>
+                <option value="lebak">Lebak / Rawa</option>
+                <option value="lembah">Lembah / Dataran Rendah (≤ 500 mdpl)</option>
+                <option value="tinggi">Dataran Tinggi (> 500 mdpl)</option>
+            </select>
+        </div>
+
+        <button id="btnAmbilData" onclick="muatDataMentahDariSheet()">Hubungkan ke Database</button>
+    </div>
+
+    <div id="loading">Menghubungkan ke Google Sheets, harap tunggu...</div>
+    <div id="statusInfo">Hubungkan ke database terlebih dahulu untuk menyaring data.</div>
+
+    <div class="table-responsive">
+        <table id="tabelPadi">
+            <thead>
+                <tr id="headerTabel"></tr>
+            </thead>
+            <tbody id="bodyTabel">
+                <tr>
+                    <td colspan="8" class="no-data">Silakan klik tombol "Hubungkan ke Database" di atas.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 
     <script>
-        // GANTI URL INI dengan URL Web App dari Google Apps Script Anda setelah di-Deploy
+        // MASUKKAN URL WEB APP APPS SCRIPT ANDA DI SINI
         const API_URL = "https://script.google.com/macros/s/AKfycbydRFvQ3xQyxbxqxTjKVjjC4LPLHfJwCF3C92-fR08caND5cjaFCXSUnuqh9b8f76dQ5Q/exec";
+        
+        // Tempat menyimpan data mentah yang diunduh dari Google Sheets
+        let databasePadiGlobal = []; 
 
-        async function muatDataPadi() {
+        // 1. Fungsi Utama: Mengambil data mentah sekali saja dari Apps Script
+        async function muatDataMentahDariSheet() {
             const loading = document.getElementById('loading');
-            const tabel = document.getElementById('tabelPadi');
-            const headerTabel = document.getElementById('headerTabel');
-            const bodyTabel = document.getElementById('bodyTabel');
-
+            const btn = document.getElementById('btnAmbilData');
+            const statusInfo = document.getElementById('statusInfo');
+            
             loading.style.display = "block";
-            tabel.style.display = "none";
-            headerTabel.innerHTML = "";
-            bodyTabel.innerHTML = "";
+            btn.disabled = true;
+            statusInfo.innerText = "Mengunduh data...";
 
             try {
-                // Memanggil jembatan Apps Script
                 const response = await fetch(API_URL);
                 const hasil = await response.json();
 
                 if (hasil.status === "success" && hasil.data.length > 0) {
-                    // 1. Buat Header Tabel Otomatis berdasarkan nama kolom di Sheet
-                    const kolom = Object.keys(hasil.data[0]);
-                    kolom.forEach(kunci => {
-                        let th = document.createElement('th');
-                        th.innerText = kunci;
-                        headerTabel.appendChild(th);
-                    });
-
-                    // 2. Isi Baris Tabel dengan Data Padi
-                    hasil.data.forEach(item => {
-                        let tr = document.createElement('tr');
-                        kolom.forEach(kunci => {
-                            let td = document.createElement('td');
-                            td.innerText = item[kunci] || "-";
-                            tr.appendChild(td);
-                        });
-                        bodyTabel.appendChild(tr);
-                    });
-
-                    loading.style.display = "none";
-                    tabel.style.display = "table";
+                    databasePadiGlobal = hasil.data; // Simpan data ke memori lokal browser
+                    statusInfo.innerText = "Database berhasil terhubung. Total data: " + databasePadiGlobal.length + " varietas.";
+                    
+                    // Bangun Header Tabel Secara Otomatis
+                    bangunHeaderTabel(databasePadiGlobal[0]);
+                    // Tampilkan semua data saat pertama kali dimuat
+                    terapkanFilter();
                 } else {
-                    alert("Gagal memuat data atau data kosong.");
-                    loading.style.display = "none";
+                    alert("Koneksi sukses tetapi tidak ada data yang ditemukan di sheet.");
                 }
-            } catch (gagal) {
-                console.error(gagal);
-                alert("Terjadi kesalahan koneksi ke API Apps Script.");
+            } catch (err) {
+                console.error(err);
+                alert("Gagal terhubung ke web app. Pastikan URL benar dan izin Deploy disetel ke 'Anyone'.");
+                btn.disabled = false;
+            } finally {
                 loading.style.display = "none";
+            }
+        }
+
+        // 2. Fungsi membuat header tabel dinamis
+        function bangunHeaderTabel(objekPertama) {
+            const headerTabel = document.getElementById('headerTabel');
+            headerTabel.innerHTML = "";
+            const kolom = Object.keys(objekPertama);
+            kolom.forEach(namaKolom => {
+                let th = document.createElement('th');
+                th.innerText = namaKolom;
+                headerTabel.appendChild(th);
+            });
+        }
+
+        // 3. Fungsi Inti: Menyaring data berdasarkan pilihan user tanpa perlu load ulang internet
+        function terapkanFilter() {
+            if (databasePadiGlobal.length === 0) return;
+
+            const pilihanUmur = document.getElementById('filterUmur').value;
+            const pilihanLahan = document.getElementById('filterLahan').value;
+            const bodyTabel = document.getElementById('bodyTabel');
+            
+            bodyTabel.innerHTML = ""; // Bersihkan tabel lama
+
+            // Lakukan penyaringan data
+            const dataTersaring = databasePadiGlobal.filter(padi => {
+                
+                // Ambil angka umur pertama dari string (contoh: "117-122" jadi 117, "104" jadi 104)
+                let textUmur = padi["UMUR PANEN (HST)"] ? padi["UMUR PANEN (HST)"].toString() : "";
+                let angkaUmur = parseInt(textUmur.match(/\d+/)); 
+                
+                let cocokUmur = false;
+                if (pilihanUmur === "semua") {
+                    cocokUmur = true;
+                } else if (pilihanUmur === "genjah" && angkaUmur < 105) {
+                    cocokUmur = true;
+                } else if (pilihanUmur === "sedang" && angkaUmur >= 105 && angkaUmur <= 115) {
+                    cocokUmur = true;
+                } else if (pilihanUmur === "dalam" && angkaUmur > 115) {
+                    cocokUmur = true;
+                }
+
+                // Ambil string adaptasi lahan (contoh: "600", "0-600", "Rawa Pasang Surut")
+                let textLahan = padi["ADAPTASI KETINGGIAN LAHAN (mdpl)"] ? padi["ADAPTASI KETINGGIAN LAHAN (mdpl)"].toString().toLowerCase() : "";
+                
+                // Cari angka tertinggi dalam deskripsi lahan tersebut
+                let kumpulanAngka = textLahan.match(/\d+/g);
+                let angkaLahanMaks = kumpulanAngka ? Math.max(...kumpulanAngka.map(Number)) : 0;
+
+                let cocokLahan = false;
+                if (pilihanLahan === "semua") {
+                    cocokLahan = true;
+                } else if (pilihanLahan === "lebak" && (textLahan.includes("rawa") || textLahan.includes("lebak"))) {
+                    cocokLahan = true;
+                } else if (pilihanLahan === "lembah" && !textLahan.includes("rawa") && !textLahan.includes("lebak") && angkaLahanMaks > 0 && angkaLahanMaks <= 500) {
+                    cocokLahan = true;
+                } else if (pilihanLahan === "tinggi" && !textLahan.includes("rawa") && !textLahan.includes("lebak") && angkaLahanMaks > 500) {
+                    cocokLahan = true;
+                }
+
+                return cocokUmur && cocokLahan;
+            });
+
+            // 4. Masukkan data hasil filter ke dalam body tabel HTML
+            if (dataTersaring.length === 0) {
+                bodyTabel.innerHTML = `<tr><td colspan="${Object.keys(databasePadiGlobal[0]).length}" class="no-data">Tidak ada varietas yang cocok dengan kombinasi filter ini.</td></tr>`;
+            } else {
+                const daftarKolom = Object.keys(databasePadiGlobal[0]);
+                dataTersaring.forEach(padi => {
+                    let tr = document.createElement('tr');
+                    daftarKolom.forEach(kolom => {
+                        let td = document.createElement('td');
+                        td.innerText = padi[kolom] || "-";
+                        tr.appendChild(td);
+                    });
+                    bodyTabel.appendChild(tr);
+                });
             }
         }
     </script>
