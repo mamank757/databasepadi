@@ -356,42 +356,41 @@
         }
 
         function terapkanFilter() {
-            if (databasePadiGlobal.length === 0) return;
+    if (databasePadiGlobal.length === 0) return;
 
-            const pilihanUmur = document.getElementById('filterUmur').value;
-            const pilihanLahan = document.getElementById('filterLahan').value;
-            
-            kolomSortirAktif = null;
-            document.querySelectorAll('#headerTabel th').forEach(th => th.className = "");
+    const pilihanUmur = document.getElementById('filterUmur').value;
+    const pilihanLahan = document.getElementById('filterLahan').value;
+    
+    kolomSortirAktif = null;
+    document.querySelectorAll('#headerTabel th').forEach(th => th.className = "");
 
-            dataTersaringGlobal = databasePadiGlobal.filter(padi => {
-                let textUmur = padi["UMUR PANEN (HST)"] ? padi["UMUR PANEN (HST)"].toString() : "";
-                // Ganti bagian ini di fungsi terapkanFilter()
-let angkaUmur = parseInt(padi["UMUR PANEN (HST)"]); // Pastikan di sheet hanya angka
-if (isNaN(angkaUmur)) angkaUmur = 0; // Backup jika kosong
-                
-                let cocokUmur = false;
-                if (pilihanUmur === "semua") { cocokUmur = true; } 
-                else if (pilihanUmur === "genjah" && angkaUmur < 105) { cocokUmur = true; } 
-                else if (pilihanUmur === "sedang" && angkaUmur >= 105 && angkaUmur <= 115) { cocokUmur = true; } 
-                else if (pilihanUmur === "dalam" && angkaUmur > 115) { cocokUmur = true; }
+    dataTersaringGlobal = databasePadiGlobal.filter(padi => {
+        // Sesuaikan nama kolom dengan header di Spreadsheet Anda
+        let angkaUmur = parseInt(padi["umur"]); 
+        if (isNaN(angkaUmur)) angkaUmur = 0;
+        
+        let cocokUmur = false;
+        if (pilihanUmur === "semua") { cocokUmur = true; } 
+        else if (pilihanUmur === "genjah" && angkaUmur < 105) { cocokUmur = true; } 
+        else if (pilihanUmur === "sedang" && angkaUmur >= 105 && angkaUmur <= 115) { cocokUmur = true; } 
+        else if (pilihanUmur === "dalam" && angkaUmur > 115) { cocokUmur = true; }
 
-                let textLahan = padi["ADAPTASI KETINGGIAN LAHAN (mdpl)"] ? padi["ADAPTASI KETINGGIAN LAHAN (mdpl)"].toString().toLowerCase() : "";
-                let kumpulanAngka = textLahan.match(/\d+/g);
-                let angkaLahanMaks = kumpulanAngka ? Math.max(...kumpulanAngka.map(Number)) : 0;
+        // Gunakan kolom "adaptasi" sesuai Spreadsheet
+        let textLahan = padi["adaptasi"] ? padi["adaptasi"].toString().toLowerCase() : "";
+        let kumpulanAngka = textLahan.match(/\d+/g);
+        let angkaLahanMaks = kumpulanAngka ? Math.max(...kumpulanAngka.map(Number)) : 0;
 
-                let cocokLahan = false;
-                if (pilihanLahan === "semua") { cocokLahan = true; } 
-                else if (pilihanLahan === "lebak" && (textLahan.includes("rawa") || textLahan.includes("lebak"))) { cocokLahan = true; } 
-                else if (pilihanLahan === "lembah" && !textLahan.includes("rawa") && !textLahan.includes("lebak") && angkaLahanMaks > 0 && angkaLahanMaks <= 500) { cocokLahan = true; } 
-                else if (pilihanLahan === "tinggi" && !textLahan.includes("rawa") && !textLahan.includes("lebak") && angkaLahanMaks > 500) { cocokLahan = true; }
+        let cocokLahan = false;
+        if (pilihanLahan === "semua") { cocokLahan = true; } 
+        else if (pilihanLahan === "lebak" && (textLahan.includes("rawa") || textLahan.includes("lebak"))) { cocokLahan = true; } 
+        else if (pilihanLahan === "lembah" && !textLahan.includes("rawa") && !textLahan.includes("lebak") && angkaLahanMaks > 0 && angkaLahanMaks <= 500) { cocokLahan = true; } 
+        else if (pilihanLahan === "tinggi" && !textLahan.includes("rawa") && !textLahan.includes("lebak") && angkaLahanMaks > 500) { cocokLahan = true; }
 
-                return cocokUmur && cocokLahan;
-            });
+        return cocokUmur && cocokLahan;
+    });
 
-            cetakDataKeTabel(dataTersaringGlobal);
-        }
-
+    cetakDataKeTabel(dataTersaringGlobal);
+}
         function urutkanTabelBerdasarkanKolom(namaKolom, elemenTh) {
             if (dataTersaringGlobal.length === 0) return;
 
