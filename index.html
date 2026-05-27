@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Varietas Padi</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
+        h2 { color: #2c3e50; }
+        button { padding: 10px 15px; font-size: 16px; background-color: #27ae60; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #219653; }
+        #loading { display: none; margin-top: 10px; font-style: italic; color: #7f8c8d; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #2980b9; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <h2>Database Varietas Padi (Live dari Google Sheets)</h2>
+    <button onclick="muatDataPadi()">Tampilkan / Refresh Data</button>
+    <div id="loading">Sedang mengambil data dari database...</div>
+
+    <table id="tabelPadi" style="display:none;">
+        <thead>
+            <tr id="headerTabel"></tr>
+        </thead>
+        <tbody id="bodyTabel"></tbody>
+    </table>
+
+    <script>
+        // GANTI URL INI dengan URL Web App dari Google Apps Script Anda setelah di-Deploy
+        const API_URL = "https://script.google.com/macros/s/AKfycbydRFvQ3xQyxbxqxTjKVjjC4LPLHfJwCF3C92-fR08caND5cjaFCXSUnuqh9b8f76dQ5Q/exec";
+
+        async function muatDataPadi() {
+            const loading = document.getElementById('loading');
+            const tabel = document.getElementById('tabelPadi');
+            const headerTabel = document.getElementById('headerTabel');
+            const bodyTabel = document.getElementById('bodyTabel');
+
+            loading.style.display = "block";
+            tabel.style.display = "none";
+            headerTabel.innerHTML = "";
+            bodyTabel.innerHTML = "";
+
+            try {
+                // Memanggil jembatan Apps Script
+                const response = await fetch(API_URL);
+                const hasil = await response.json();
+
+                if (hasil.status === "success" && hasil.data.length > 0) {
+                    // 1. Buat Header Tabel Otomatis berdasarkan nama kolom di Sheet
+                    const kolom = Object.keys(hasil.data[0]);
+                    kolom.forEach(kunci => {
+                        let th = document.createElement('th');
+                        th.innerText = kunci;
+                        headerTabel.appendChild(th);
+                    });
+
+                    // 2. Isi Baris Tabel dengan Data Padi
+                    hasil.data.forEach(item => {
+                        let tr = document.createElement('tr');
+                        kolom.forEach(kunci => {
+                            let td = document.createElement('td');
+                            td.innerText = item[kunci] || "-";
+                            tr.appendChild(td);
+                        });
+                        bodyTabel.appendChild(tr);
+                    });
+
+                    loading.style.display = "none";
+                    tabel.style.display = "table";
+                } else {
+                    alert("Gagal memuat data atau data kosong.");
+                    loading.style.display = "none";
+                }
+            } catch (gagal) {
+                console.error(gagal);
+                alert("Terjadi kesalahan koneksi ke API Apps Script.");
+                loading.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>
