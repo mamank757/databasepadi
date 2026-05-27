@@ -366,7 +366,9 @@
 
             dataTersaringGlobal = databasePadiGlobal.filter(padi => {
                 let textUmur = padi["UMUR PANEN (HST)"] ? padi["UMUR PANEN (HST)"].toString() : "";
-                let angkaUmur = parseInt(textUmur.match(/\d+/)); 
+                // Ganti bagian ini di fungsi terapkanFilter()
+let angkaUmur = parseInt(padi["UMUR PANEN (HST)"]); // Pastikan di sheet hanya angka
+if (isNaN(angkaUmur)) angkaUmur = 0; // Backup jika kosong
                 
                 let cocokUmur = false;
                 if (pilihanUmur === "semua") { cocokUmur = true; } 
